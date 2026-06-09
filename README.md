@@ -1,186 +1,264 @@
+<div align="center">
+
 # Codex Monitor
 
-Codex Monitor 是一个局域网内监控多台电脑 Codex 状态的 Android App + 本地 HTTP Agent。手机端可以查看每台电脑的当前状态、5h / weekly 余额、重置时间和 token 消耗，并在任务完成、失败或需要权限确认时弹出手机通知。
+Monitor Codex sessions across your LAN from Android.
 
-## 功能
+![Android](https://img.shields.io/badge/Android-native%20Java-3DDC84?logo=android&logoColor=white)
+![Python](https://img.shields.io/badge/Host-Python%203.x-3776AB?logo=python&logoColor=white)
+![LAN](https://img.shields.io/badge/Network-LAN%20HTTP-0A84FF)
+![Release](https://img.shields.io/github/v/release/KangYYYYYY/Codex-Monitor?include_prereleases&label=release)
 
-- Android App 扫描局域网内 `8787` 端口的电脑端 Agent。
-- 可手动添加多台电脑并持续后台轮询。
-- 默认每 `0.5 秒`检查状态，App 设置里可调整为 `0.5 / 1 / 2 / 5 / 10 / 30 秒`。
-- 使用类似 Agent Signal Bar 的红黄绿信号灯显示状态。
-- 显示 Codex 当前状态：思考中、执行中、完成、失败、需要权限、空闲等。
-- 显示 Codex Plus 的 5h / weekly 剩余额度和重置时间。
-- 显示当前会话 token 消耗。
-- 任务完成、失败或需要权限时发送手机通知。
-- Codex Hook 可在 Codex 启动时自动拉起 `server.py`。
+</div>
 
-## 目录结构
+Codex Monitor is a local-network Android monitor for Codex sessions. It runs a lightweight HTTP agent on each computer, then lets your phone track multiple devices, Codex activity, 5h / weekly quota, token usage, and important task events.
+
+The project is designed for personal LAN use: no cloud service, no external account system, and no remote relay.
+
+## Contents
+
+- [Features](#features)
+- [How It Works](#how-it-works)
+- [Quick Start](#quick-start)
+- [Recommended AI-Assisted Install](#recommended-ai-assisted-install)
+- [Android App](#android-app)
+- [Host API](#host-api)
+- [Codex Hook Events](#codex-hook-events)
+- [Troubleshooting](#troubleshooting)
+- [Security Notes](#security-notes)
+
+## At a Glance
+
+| Part | Description |
+| --- | --- |
+| Android app | Multi-device dashboard, LAN scan, notifications, background polling |
+| Host agent | Local Python HTTP server exposed on `:8787` |
+| Codex hooks | Publish status updates when Codex starts, thinks, runs tools, asks permission, or finishes |
+| Network model | Phone and computers stay inside the same trusted LAN |
+
+## Features
+
+- Monitor multiple Codex computers from one Android app.
+- Scan LAN devices on port `8787`, or add a computer manually.
+- Show device state with an Agent-Signal-Bar-style traffic-light indicator.
+- Track Codex states such as thinking, running, done, failed, idle, and permission required.
+- Display 5h and weekly remaining quota when the host agent can read it.
+- Display current session token usage.
+- Send Android heads-up notifications with vibration for done, failed, and permission-required events.
+- Keep background polling alive with a user-configurable check interval.
+- Auto-start the local HTTP agent from Codex hooks.
+- Support optional LAN access token via `LOCAL_AGENT_TOKEN`.
+
+## How It Works
 
 ```text
-android-app/   Android App 源码
-host/          Codex Hook 安装、事件上报、自动启动脚本
-hooks/         hooks.json 示例
-server.py      电脑端局域网 HTTP Agent
-.env.example   本地访问令牌等配置示例
+Codex / Codex plugin
+        |
+        | Hook events
+        v
+host/codex_mobile_hook.py
+        |
+        | local state file / event data
+        v
+server.py  -- HTTP :8787 -->  Android app
+        |
+        v
+LAN status API
 ```
 
-构建产物、日志、Chrome 调试 profile、本地 IDE 配置、`local.properties`、`.env` 等都已通过 `.gitignore` 排除。
+The phone does not talk to OpenAI directly. It polls each computer's local `server.py` agent and renders the status returned by that machine.
 
-## 推荐安装方式
-
-如果你要在多台电脑上部署，推荐直接让 Codex / Claude Code / 其他 AI 助手在目标电脑上帮你安装。把这个仓库复制到目标电脑后，对 AI 说：
+## Repository Layout
 
 ```text
-请帮我在这台电脑安装 Codex Monitor 的电脑端 Hook。
-要求：
-1. 进入当前项目目录。
-2. 如需要，复制 .env.example 为 .env。
-3. 执行 .\host\install_codex_mobile_hooks.ps1 -Scope User。
-4. 确认 %USERPROFILE%\.codex\hooks.json 已写入。
-5. 启动或重启 Codex。
-6. 启动 python server.py，并确认 http://127.0.0.1:8787/api/health 可访问。
-7. 如果局域网访问失败，帮我放行 Windows 防火墙 8787 端口。
+android-app/   Native Android app source
+host/          Codex hook installer, event publisher, firewall helper
+hooks/         Example Codex hooks.json
+server.py      LAN HTTP agent running on the computer
+.env.example   Optional host configuration
+README.md      Project documentation
 ```
 
-这样可以避免手动找路径、改 hooks、开防火墙时出错。目标电脑安装完成后，手机 App 扫描局域网即可添加这台电脑。
+Generated APKs, logs, local IDE files, `.env`, `local.properties`, Python cache, and build outputs are intentionally ignored by Git.
 
-## 电脑端手动安装
+## Quick Start
 
-1. 复制配置文件：
+### 1. Install the Android app
 
-   ```powershell
-   Copy-Item .env.example .env
-   ```
+Download the APK from the GitHub release page:
 
-2. 可选：编辑 `.env` 设置本地访问令牌。
+```text
+https://github.com/KangYYYYYY/Codex-Monitor/releases/latest
+```
 
-   ```text
-   LOCAL_AGENT_TOKEN=your-local-token
-   ```
+Install it on your Android phone, then allow notification permission when the app asks.
 
-   如果留空，局域网内可直接访问。建议只在可信局域网使用留空模式。
+### 2. Prepare the host computer
 
-3. 启动电脑端 Agent：
+Clone or copy this repository to the computer that runs Codex.
 
-   ```powershell
-   python server.py
-   ```
+```powershell
+Copy-Item .env.example .env
+```
 
-4. 手机和电脑连接同一个 Wi-Fi，在 App 中扫描或手动添加：
+Edit `.env` if needed:
 
-   ```text
-   http://电脑局域网IP:8787
-   ```
+```text
+LOCAL_AGENT_TOKEN=change-this-local-token
+HOST=0.0.0.0
+PORT=8787
+```
 
-5. 检查接口：
+`LOCAL_AGENT_TOKEN` is optional, but recommended on shared Wi-Fi. If you set it on the computer, enter the same token in the Android app.
 
-   ```text
-   http://127.0.0.1:8787/api/health
-   http://127.0.0.1:8787/api/mobile-status?fresh=1
-   ```
+### 3. Install Codex hooks
 
-如果配置了 `LOCAL_AGENT_TOKEN`，App 中也要填写同一个访问令牌。
-
-## Codex Hook 自动启动
-
-安装用户级 Hook：
+User-level install:
 
 ```powershell
 .\host\install_codex_mobile_hooks.ps1 -Scope User
 ```
 
-这会写入：
-
-```text
-%USERPROFILE%\.codex\hooks.json
-```
-
-安装项目级 Hook：
+Project-level install:
 
 ```powershell
 .\host\install_codex_mobile_hooks.ps1 -Scope Project
 ```
 
-这会写入当前项目的 `.codex/hooks.json`。该目录属于本地生成文件，不建议提交到 GitHub。
+Restart Codex after installing hooks. The first run may ask you to review and trust the hook definition.
 
-安装后重启 Codex。第一次运行时 Codex 可能要求 review / trust hook 定义，确认信任后才会执行。
+### 4. Start or verify the LAN agent
 
-Hook 映射：
-
-```text
-SessionStart      -> 启动 server.py
-UserPromptSubmit  -> THINKING
-PreToolUse        -> WRITING(apply_patch) / RUNNING(other)
-PostToolUse       -> THINKING / ERROR
-PermissionRequest -> NEED_CONFIRM
-Stop              -> DONE
-```
-
-## Windows 防火墙
-
-如果手机能访问电脑 IP，但打不开 `8787`，通常是防火墙问题。用管理员 PowerShell 运行：
+The hook can start `server.py` automatically when Codex starts. You can also run it manually:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\host\allow_firewall_8787.ps1
+python server.py
 ```
 
-也可以手动允许 Python 或端口 `8787` 的局域网入站连接。
+Check the local endpoints:
 
-## Android App 打包
+```text
+http://127.0.0.1:8787/api/health
+http://127.0.0.1:8787/api/mobile-status?fresh=1
+```
 
-源码目录：
+Then connect your phone to the same Wi-Fi and either scan the LAN or add:
+
+```text
+http://<computer-lan-ip>:8787
+```
+
+## Recommended AI-Assisted Install
+
+For additional computers, the easiest workflow is to let Codex, Claude Code, or another local AI assistant install the hook for you.
+
+Copy this repository to the target computer, then ask the assistant:
+
+```text
+Please install Codex Monitor's host hook on this computer.
+
+Requirements:
+1. Enter the current project directory.
+2. Copy .env.example to .env if .env does not exist.
+3. Run .\host\install_codex_mobile_hooks.ps1 -Scope User.
+4. Confirm that %USERPROFILE%\.codex\hooks.json contains the hook entries.
+5. Restart Codex or tell me to restart it.
+6. Run python server.py and confirm that http://127.0.0.1:8787/api/health works.
+7. If LAN access fails, help me allow Windows Firewall inbound access for port 8787.
+```
+
+This avoids common mistakes around paths, hooks, PowerShell execution policy, and firewall rules.
+
+## Android App
+
+Source directory:
 
 ```text
 android-app/
 ```
 
-使用 Android Studio：
+Build with Android Studio:
 
-1. 打开 `android-app/`。
-2. 等待 Gradle Sync。
-3. 菜单选择：
+1. Open `android-app/`.
+2. Wait for Gradle Sync.
+3. Use `Build > Build Bundle(s) / APK(s) > Build APK(s)`.
 
-   ```text
-   Build > Build Bundle(s) / APK(s) > Build APK(s)
-   ```
-
-4. Debug APK 输出：
-
-   ```text
-   android-app/app/build/outputs/apk/debug/app-debug.apk
-   ```
-
-命令行打包：
+Build from PowerShell:
 
 ```powershell
 cd android-app
 .\build-apk.ps1
 ```
 
-或：
-
-```powershell
-cd android-app
-.\gradlew.bat assembleDebug
-```
-
-## 小米 / 红米手机设置
-
-为了让后台通知稳定，建议给 `Codex Monitor` 设置：
-
-- 通知权限：允许通知、顶部横幅、锁屏、震动。
-- 省电策略：无限制。
-- 自启动：允许。
-- 后台运行：不要在最近任务里清理该 App。
-
-如果系统回收后台服务，可能出现任务完成后只有重新打开 App 才弹通知。
-
-## 部署到其他电脑
-
-只需要复制这些文件和目录：
+Debug APK output:
 
 ```text
-android-app/
+android-app/app/build/outputs/apk/debug/app-debug.apk
+```
+
+Release APKs should be signed before publishing. Do not publish `app-debug.apk` as a public release.
+
+## Host API
+
+Default bind:
+
+```text
+0.0.0.0:8787
+```
+
+Useful endpoints:
+
+| Endpoint | Purpose |
+| --- | --- |
+| `GET /api/health` | Basic health check for scanning and manual connection |
+| `GET /api/mobile-status?fresh=1` | Full Android status payload |
+
+If `LOCAL_AGENT_TOKEN` is configured, pass the same token from the Android app. Keep the token private.
+
+## Codex Hook Events
+
+The installer writes these Codex hook mappings:
+
+| Codex event | Monitor state |
+| --- | --- |
+| `SessionStart` | Start host server and publish initial status |
+| `UserPromptSubmit` | Thinking |
+| `PreToolUse` | Running / writing |
+| `PostToolUse` | Thinking or error |
+| `PermissionRequest` | Permission required |
+| `Stop` | Done |
+
+The app also polls `/api/mobile-status?fresh=1`, so the UI can recover even if a hook event is missed.
+
+## Windows Firewall
+
+If the phone can reach the computer's IP but cannot open port `8787`, allow inbound LAN traffic.
+
+Run PowerShell as administrator:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\host\allow_firewall_8787.ps1
+```
+
+You can also manually allow Python or TCP port `8787` in Windows Defender Firewall.
+
+## Xiaomi / Redmi Settings
+
+For reliable notifications on Xiaomi / Redmi devices:
+
+- Allow notifications, heads-up banners, lock-screen notifications, and vibration.
+- Set battery saver to unrestricted for Codex Monitor.
+- Allow autostart if available.
+- Do not clear the app from recent tasks if you rely on background alerts.
+- In the app settings, choose a polling interval that matches your battery and latency needs.
+
+Without these permissions, Android or MIUI may delay background checks until the app is opened again.
+
+## Deploy to More Computers
+
+Only these files are needed on another computer:
+
+```text
 host/
 hooks/
 server.py
@@ -188,24 +266,50 @@ server.py
 README.md
 ```
 
-在目标电脑安装 Python 后，运行：
+The Android source is only needed if you want to build the APK on that computer.
+
+Install on the target computer:
 
 ```powershell
+Copy-Item .env.example .env
 .\host\install_codex_mobile_hooks.ps1 -Scope User
 python server.py
 ```
 
-然后重启 Codex 并信任 Hook。手机 App 扫描局域网即可添加这台电脑。
+Restart Codex, trust the hooks if prompted, then add the computer from the Android app.
 
-## GitHub 提交说明
+## Troubleshooting
 
-本仓库不提交：
+### Phone cannot connect
 
-- `.env`
-- `android-app/local.properties`
-- Android 构建产物
-- 日志文件
-- Python `__pycache__`
-- 本地 IDE 配置
+- Confirm the phone and computer are on the same LAN.
+- Open `http://<computer-ip>:8787/api/health` from the phone browser.
+- Check Windows Firewall for port `8787`.
+- Do not use `127.0.0.1` on the phone. That points to the phone itself.
+- If you set `LOCAL_AGENT_TOKEN`, make sure the Android app uses the same token.
 
-如果要上传到 GitHub，建议先创建私有仓库。
+### Notifications appear only after opening the app
+
+- Enable notification banners and vibration.
+- Disable battery restrictions for Codex Monitor.
+- Allow autostart/background running in MIUI.
+- Use a shorter polling interval in the app settings.
+
+### State sometimes looks stale
+
+- Restart `server.py`.
+- Restart Codex after installing or changing hooks.
+- Open `/api/mobile-status?fresh=1` on the host to confirm what the agent is returning.
+
+## Security Notes
+
+This project is intended for trusted local networks.
+
+- Prefer setting `LOCAL_AGENT_TOKEN` on shared Wi-Fi.
+- Do not expose port `8787` to the public internet.
+- Do not commit `.env`, local signing keys, build outputs, or logs.
+- Review Codex hook definitions before trusting them.
+
+## License
+
+No license file is included yet. Add a `LICENSE` file before publishing this as an open-source project so users know what they are allowed to do with the code.

@@ -1,81 +1,65 @@
 # Codex Monitor Android App
 
-原生 Java Android App，用来连接电脑端 `server.py`：
+Native Android app for Codex Monitor.
+
+The app connects to one or more LAN host agents:
 
 ```text
-http://电脑局域网IP:8787/api/mobile-status
+http://<computer-lan-ip>:8787/api/mobile-status?fresh=1
 ```
 
-## 功能
+## Features
 
-- 扫描局域网内运行 `server.py` 的电脑。
-- 手动添加电脑端地址。
-- 多设备状态卡片纵向排列。
-- 显示状态、5h / weekly 余额、重置时间和 token 消耗。
-- 默认每 0.5 秒后台检查状态，设置中可调整。
-- 任务完成、失败或需要权限确认时发送手机通知。
+- Scan LAN devices running the Codex Monitor host agent.
+- Manually add a host URL and optional access token.
+- Monitor multiple Codex computers.
+- Show traffic-light status, 5h / weekly quota, reset time, and token usage.
+- Send heads-up notifications with vibration for done, failed, and permission-required events.
+- Keep background polling with a configurable interval.
 
-## 用 Android Studio 打包
+## Build with Android Studio
 
-1. 安装 Android Studio。
-2. 打开目录：
+1. Open this `android-app/` directory in Android Studio.
+2. Wait for Gradle Sync.
+3. Build from:
 
-   ```text
-   android-app
-   ```
+```text
+Build > Build Bundle(s) / APK(s) > Build APK(s)
+```
 
-3. 等待 Gradle Sync 完成。
-4. 菜单选择：
+Debug APK output:
 
-   ```text
-   Build > Build Bundle(s) / APK(s) > Build APK(s)
-   ```
+```text
+app/build/outputs/apk/debug/app-debug.apk
+```
 
-5. APK 输出目录：
+Release APK output depends on your signing setup. Do not publish `app-debug.apk` as a public release.
 
-   ```text
-   android-app/app/build/outputs/apk/debug/app-debug.apk
-   ```
-
-## 命令行打包
+## Build from PowerShell
 
 ```powershell
-cd android-app
-.\gradlew.bat assembleDebug
+.\build-apk.ps1
 ```
 
-## 安装到手机
+The script tries to detect Android Studio's JBR and SDK path from `local.properties`.
 
-Android Studio 连接手机后可直接点击 Run。
+## Install to a Phone
 
-命令行安装：
+With ADB:
 
 ```powershell
 adb install -r .\app\build\outputs\apk\debug\app-debug.apk
 ```
 
-## App 内设置
+For production use, install a signed release APK instead.
 
-电脑端地址示例：
+## Runtime Permissions
 
-```text
-http://192.168.1.23:8787
-```
+The app uses:
 
-如果电脑端 `.env` 设置了：
+- `INTERNET` for LAN HTTP requests.
+- `POST_NOTIFICATIONS` for Android 13+ notifications.
+- `FOREGROUND_SERVICE` for background monitoring.
+- `RECEIVE_BOOT_COMPLETED` to resume monitoring after reboot.
 
-```text
-LOCAL_AGENT_TOKEN=xxx
-```
-
-App 里的访问令牌也要填同一个值。没设置就留空。
-
-## 后台通知
-
-小米/红米手机建议开启：
-
-- 通知横幅、锁屏、震动。
-- 省电策略设为无限制。
-- 允许自启动。
-
-否则系统可能回收后台服务，导致通知延迟到下次打开 App 才出现。
+On Xiaomi / Redmi phones, also allow notification banners, vibration, autostart, and unrestricted battery usage for reliable background alerts.
