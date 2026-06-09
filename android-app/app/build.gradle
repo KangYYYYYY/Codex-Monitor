@@ -1,0 +1,16 @@
+plugins {
+    id "com.android.application"
+}
+
+android {
+    namespace "com.example.codexmobilemonitor"
+    compileSdk 35
+
+    defaultConfig {
+        applicationId "com.example.codexmobilemonitor"
+        minSdk 26
+        targetSdk 35
+        versionCode 20
+        versionName "0.2.18"
+    }
+}

@@ -1,0 +1,30 @@
+# Local environment and secrets
+.env
+local.properties
+*.keystore
+*.jks
+*.p12
+
+# Runtime logs and Python cache
+*.log
+__pycache__/
+*.py[cod]
+
+# Android / Gradle generated files
+android-app/.gradle/
+android-app/.idea/
+android-app/build/
+android-app/app/build/
+android-app/app/release/
+android-app/local.properties
+*.iml
+
+# Local browser profiles and previews
+chrome-profile*/
+preview*.png
+
+# Removed development references
+third_party/
+web/
+android-app/assets/
+codex-monitor-release
