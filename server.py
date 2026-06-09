@@ -71,6 +71,65 @@ def load_dotenv(path: Path) -> None:
             os.environ[key] = value
 
 
+def hidden_subprocess_kwargs() -> dict:
+    if os.name != "nt":
+        return {}
+
+    flags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+    startupinfo = subprocess.STARTUPINFO()
+    startupinfo.dwFlags |= getattr(subprocess, "STARTF_USESHOWWINDOW", 0)
+    startupinfo.wShowWindow = getattr(subprocess, "SW_HIDE", 0)
+    return {"creationflags": flags, "startupinfo": startupinfo}
+
+
+def resolve_codex_cli_path() -> str | None:
+    configured = os.getenv("CODEX_CLI_PATH", "").strip()
+    candidates: list[Path] = []
+    if configured:
+        candidates.append(Path(configured))
+
+    if os.name == "nt":
+        for item in os.getenv("PATH", "").split(os.pathsep):
+            if item:
+                candidates.append(Path(item) / "codex.exe")
+
+        candidates.extend((Path.home() / ".vscode" / "extensions").glob(
+            "openai.chatgpt-*-win32-x64/bin/windows-x86_64/codex.exe"
+        ))
+
+        local_app_data = os.getenv("LOCALAPPDATA")
+        if local_app_data:
+            candidates.extend((Path(local_app_data) / "OpenAI" / "Codex" / "bin").glob("*/codex.exe"))
+
+        candidates.extend((Path.home() / "AppData" / "Roaming" / "npm" / "node_modules").glob(
+            "@openai/codex/node_modules/@openai/codex-win32-x64/vendor/*/codex/codex.exe"
+        ))
+    else:
+        found = shutil.which("codex")
+        if found:
+            candidates.append(Path(found))
+
+    seen: set[str] = set()
+    for candidate in candidates:
+        try:
+            resolved = candidate.resolve()
+        except OSError:
+            continue
+        key = str(resolved).lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        if resolved.is_file() and (os.name != "nt" or resolved.suffix.lower() == ".exe"):
+            return str(resolved)
+
+    found = shutil.which("codex")
+    if not found:
+        return None
+    if os.name == "nt" and Path(found).suffix.lower() != ".exe":
+        return None
+    return found
+
+
 def now_iso() -> str:
     return datetime.now().astimezone().isoformat(timespec="seconds")
 
@@ -443,7 +502,7 @@ def normalize_rate_limit_snapshot(snapshot: object, source: str, updated_at: str
 
 
 def read_codex_app_server_rate_limits() -> dict | None:
-    codex_path = shutil.which("codex")
+    codex_path = resolve_codex_cli_path()
     if not codex_path:
         return None
 
@@ -456,6 +515,7 @@ def read_codex_app_server_rate_limits() -> dict | None:
         text=True,
         encoding="utf-8",
         errors="replace",
+        **hidden_subprocess_kwargs(),
     )
     lines: queue.Queue[str] = queue.Queue()
 
@@ -1306,7 +1366,7 @@ def read_codex_activity_file(latest_file: Path) -> dict:
 
 
 def fetch_codex_status(force_direct_limits: bool = False) -> dict:
-    codex_path = shutil.which("codex")
+    codex_path = resolve_codex_cli_path()
     version = None
     errors: list[str] = []
     rate_limits = find_latest_codex_rate_limits(force_direct=force_direct_limits)
@@ -1316,11 +1376,11 @@ def fetch_codex_status(force_direct_limits: bool = False) -> dict:
     if codex_path:
         try:
             completed = subprocess.run(
-                "codex --version",
-                shell=True,
+                [codex_path, "--version"],
                 capture_output=True,
                 text=True,
                 timeout=8,
+                **hidden_subprocess_kwargs(),
             )
             output = (completed.stdout or completed.stderr).strip()
             if completed.returncode == 0 and output:

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import shutil
 import subprocess
 import sys
 import time
@@ -12,6 +13,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SERVER = ROOT / "server.py"
 LOG_PATH = Path(__file__).with_name("codex_mobile_server_autostart.log")
+LOCK_PATH = Path(__file__).with_name("codex_mobile_server_autostart.lock")
 DEFAULT_AGENT_URL = "http://127.0.0.1:8787"
 
 
@@ -33,6 +35,58 @@ def is_agent_running() -> bool:
             return response.status == 200
     except (OSError, urllib.error.URLError, urllib.error.HTTPError):
         return False
+
+
+def acquire_start_lock(timeout: float = 5.0, stale_seconds: float = 30.0) -> int | None:
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        try:
+            fd = os.open(str(LOCK_PATH), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            os.write(fd, f"{os.getpid()} {time.time()}\n".encode("ascii"))
+            return fd
+        except FileExistsError:
+            try:
+                age = time.time() - LOCK_PATH.stat().st_mtime
+                if age > stale_seconds:
+                    LOCK_PATH.unlink(missing_ok=True)
+                    continue
+            except OSError:
+                pass
+            if is_agent_running():
+                log("server already running")
+                return None
+            time.sleep(0.1)
+    log("server start lock is held; skipping duplicate start")
+    return None
+
+
+def release_start_lock(fd: int | None) -> None:
+    if fd is None:
+        return
+    try:
+        os.close(fd)
+    finally:
+        try:
+            LOCK_PATH.unlink(missing_ok=True)
+        except OSError as exc:
+            log(f"lock cleanup failed: {exc}")
+
+
+def background_python() -> str:
+    if os.name != "nt":
+        return sys.executable
+
+    current = Path(sys.executable)
+    sibling_pythonw = current.with_name("pythonw.exe")
+    if sibling_pythonw.exists():
+        return str(sibling_pythonw)
+
+    for name in ("pythonw", "pyw"):
+        resolved = shutil.which(name)
+        if resolved:
+            return resolved
+
+    return sys.executable
 
 
 def start_server() -> None:
@@ -63,7 +117,7 @@ def start_server() -> None:
         kwargs.pop("creationflags", None)
         kwargs["start_new_session"] = True
 
-    process = subprocess.Popen([sys.executable, str(SERVER)], **kwargs)
+    process = subprocess.Popen([background_python(), str(SERVER)], **kwargs)
     log(f"started server.py pid={process.pid} root={ROOT}")
 
 
@@ -72,13 +126,24 @@ def main() -> None:
         log("server already running")
         return
 
-    start_server()
-    for _ in range(10):
-        time.sleep(0.25)
+    lock_fd = acquire_start_lock()
+    if lock_fd is None:
+        return
+
+    try:
         if is_agent_running():
-            log("server health check passed")
+            log("server already running")
             return
-    log("server started but health check did not pass yet")
+
+        start_server()
+        for _ in range(10):
+            time.sleep(0.25)
+            if is_agent_running():
+                log("server health check passed")
+                return
+        log("server started but health check did not pass yet")
+    finally:
+        release_start_lock(lock_fd)
 
 
 if __name__ == "__main__":

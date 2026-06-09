@@ -7,14 +7,37 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
+import start_codex_mobile_server
+
 
 LOG_PATH = Path(__file__).with_name("codex_mobile_hook.log")
 DEFAULT_AGENT_URL = "http://127.0.0.1:8787"
+ROOT = Path(__file__).resolve().parents[1]
 
 
 def log(message: str) -> None:
     with LOG_PATH.open("a", encoding="utf-8") as file:
         file.write(message + "\n")
+
+
+def load_dotenv(path: Path) -> None:
+    if not path.exists():
+        return
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except OSError as exc:
+        log(f"dotenv read failed: {exc}")
+        return
+
+    for line in lines:
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#") or "=" not in stripped:
+            continue
+        key, value = stripped.split("=", 1)
+        key = key.strip()
+        value = value.strip().strip('"').strip("'")
+        if key and key not in os.environ:
+            os.environ[key] = value
 
 
 def load_event() -> dict:
@@ -48,6 +71,7 @@ def send_event(event: dict) -> None:
 
 
 def main() -> None:
+    load_dotenv(ROOT / ".env")
     event = load_event()
     name = (
         event.get("hook_event_name")
@@ -64,6 +88,7 @@ def main() -> None:
         or event.get("thread_id")
         or ""
     )
+    start_codex_mobile_server.main()
     try:
         send_event(event)
         log(f"sent event={name} tool={tool} session={session_id}")

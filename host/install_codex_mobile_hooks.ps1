@@ -1,6 +1,7 @@
 param(
     [ValidateSet("User", "Project")]
-    [string] $Scope = "User"
+    [string] $Scope = "User",
+    [switch] $AutostartOnly
 )
 
 $ErrorActionPreference = "Stop"
@@ -119,32 +120,70 @@ function Set-HookEntries([string] $eventName, [object[]] $newEntries) {
     $hooks[$eventName] = @($existing + $newEntries)
 }
 
-$python = "python"
-$startCommand = "$python `"$startScript`""
-$eventCommand = "$python `"$eventScript`""
+function Clear-MobileHookEntries([string] $eventName) {
+    if (-not $hooks.ContainsKey($eventName)) {
+        return
+    }
+    $existing = Remove-MobileHooks @($hooks[$eventName])
+    if ($existing.Count -gt 0) {
+        $hooks[$eventName] = @($existing)
+    } else {
+        $hooks.Remove($eventName)
+    }
+}
+
+function Get-PythonCommand {
+    $pythonw = Get-Command pythonw -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($pythonw -and $pythonw.Source) {
+        return $pythonw.Source
+    }
+
+    $pyw = Get-Command pyw -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($pyw -and $pyw.Source) {
+        return $pyw.Source
+    }
+
+    return "python"
+}
+
+$python = Get-PythonCommand
+$eventCommand = "`"$python`" `"$eventScript`""
 
 Set-HookEntries "SessionStart" @(
     [ordered]@{
         matcher = "startup|resume|clear"
         hooks = @(
-            New-CommandHook $startCommand "Starting Codex LAN Monitor"
             New-CommandHook $eventCommand "Publishing Codex status"
         )
     }
 )
 
-Set-HookEntries "UserPromptSubmit" @(
-    [ordered]@{
-        hooks = @(
-            New-CommandHook $eventCommand "Publishing Codex status"
-        )
+if ($AutostartOnly) {
+    foreach ($eventName in @("UserPromptSubmit", "PreToolUse", "PostToolUse", "PermissionRequest", "Stop")) {
+        Clear-MobileHookEntries $eventName
     }
-)
-
-foreach ($eventName in @("PreToolUse", "PostToolUse", "PermissionRequest")) {
-    Set-HookEntries $eventName @(
+} else {
+    Set-HookEntries "UserPromptSubmit" @(
         [ordered]@{
-            matcher = ".*"
+            hooks = @(
+                New-CommandHook $eventCommand "Publishing Codex status"
+            )
+        }
+    )
+
+    foreach ($eventName in @("PreToolUse", "PostToolUse", "PermissionRequest")) {
+        Set-HookEntries $eventName @(
+            [ordered]@{
+                matcher = ".*"
+                hooks = @(
+                    New-CommandHook $eventCommand "Publishing Codex status"
+                )
+            }
+        )
+    }
+
+    Set-HookEntries "Stop" @(
+        [ordered]@{
             hooks = @(
                 New-CommandHook $eventCommand "Publishing Codex status"
             )
@@ -152,19 +191,12 @@ foreach ($eventName in @("PreToolUse", "PostToolUse", "PermissionRequest")) {
     )
 }
 
-Set-HookEntries "Stop" @(
-    [ordered]@{
-        hooks = @(
-            New-CommandHook $eventCommand "Publishing Codex status"
-        )
-    }
-)
-
 $json = $config | ConvertTo-Json -Depth 20
 Set-Content -LiteralPath $hooksPath -Value $json -Encoding UTF8
 
 Write-Host "Installed Codex Mobile hooks:"
 Write-Host "  Scope: $Scope"
+Write-Host "  Mode:  $(if ($AutostartOnly) { 'AutostartOnly' } else { 'FullEvents' })"
 Write-Host "  File:  $hooksPath"
 Write-Host ""
 Write-Host "Restart Codex. The first run may ask you to review and trust the hook definition."

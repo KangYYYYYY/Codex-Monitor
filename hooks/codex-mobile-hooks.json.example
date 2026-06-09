@@ -6,15 +6,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python \"./host/start_codex_mobile_server.py\"",
-            "commandWindows": "python \".\\host\\start_codex_mobile_server.py\"",
-            "timeout": 5,
-            "statusMessage": "Starting Codex LAN Monitor"
-          },
-          {
-            "type": "command",
             "command": "python \"./host/codex_mobile_hook.py\"",
-            "commandWindows": "python \".\\host\\codex_mobile_hook.py\"",
+            "commandWindows": "pythonw \".\\host\\codex_mobile_hook.py\"",
             "timeout": 5,
             "statusMessage": "Publishing Codex status"
           }
@@ -27,7 +20,7 @@
           {
             "type": "command",
             "command": "python \"./host/codex_mobile_hook.py\"",
-            "commandWindows": "python \".\\host\\codex_mobile_hook.py\"",
+            "commandWindows": "pythonw \".\\host\\codex_mobile_hook.py\"",
             "timeout": 5
           }
         ]
@@ -40,7 +33,7 @@
           {
             "type": "command",
             "command": "python \"./host/codex_mobile_hook.py\"",
-            "commandWindows": "python \".\\host\\codex_mobile_hook.py\"",
+            "commandWindows": "pythonw \".\\host\\codex_mobile_hook.py\"",
             "timeout": 5
           }
         ]
@@ -53,7 +46,7 @@
           {
             "type": "command",
             "command": "python \"./host/codex_mobile_hook.py\"",
-            "commandWindows": "python \".\\host\\codex_mobile_hook.py\"",
+            "commandWindows": "pythonw \".\\host\\codex_mobile_hook.py\"",
             "timeout": 5
           }
         ]
@@ -66,7 +59,7 @@
           {
             "type": "command",
             "command": "python \"./host/codex_mobile_hook.py\"",
-            "commandWindows": "python \".\\host\\codex_mobile_hook.py\"",
+            "commandWindows": "pythonw \".\\host\\codex_mobile_hook.py\"",
             "timeout": 5
           }
         ]
@@ -78,7 +71,7 @@
           {
             "type": "command",
             "command": "python \"./host/codex_mobile_hook.py\"",
-            "commandWindows": "python \".\\host\\codex_mobile_hook.py\"",
+            "commandWindows": "pythonw \".\\host\\codex_mobile_hook.py\"",
             "timeout": 5
           }
         ]
