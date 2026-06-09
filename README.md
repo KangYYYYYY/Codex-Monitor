@@ -312,4 +312,4 @@ This project is intended for trusted local networks.
 
 ## License
 
-No license file is included yet. Add a `LICENSE` file before publishing this as an open-source project so users know what they are allowed to do with the code.
+This project is licensed under the [MIT License](LICENSE).
